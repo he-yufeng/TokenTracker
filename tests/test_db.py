@@ -1,9 +1,6 @@
 """Tests for database logging."""
 
-import os
-import tempfile
-
-from tokentracker.db import log_call, get_db
+from tokentracker.db import get_db, log_call
 
 
 def test_log_and_query(tmp_path):
