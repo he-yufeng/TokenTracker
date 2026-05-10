@@ -34,15 +34,22 @@ def summary(days: int = 30, db_path: str | None = None) -> dict:
     }
 
 
-def recent(limit: int = 20, db_path: str | None = None) -> list[dict]:
+def recent(limit: int = 20, days: int | None = None, db_path: str | None = None) -> list[dict]:
     """Get the most recent API calls."""
     conn = get_db(db_path)
     conn.row_factory = _dict_factory
+    where = ""
+    params: list[object] = []
+    if days is not None:
+        where = "WHERE timestamp > unixepoch('now', ?)"
+        params.append(f"-{days} days")
+    params.append(limit)
     cur = conn.execute(
         """SELECT timestamp, model, input_tokens, output_tokens,
                   total_tokens, cost_usd, latency_ms, status, error
-        FROM calls ORDER BY timestamp DESC LIMIT ?""",
-        (limit,),
+        FROM calls {where}
+        ORDER BY timestamp DESC LIMIT ?""".format(where=where),
+        params,
     )
     rows = cur.fetchall()
     conn.row_factory = None

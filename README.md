@@ -153,6 +153,12 @@ tokentracker recent -n 50
 # Export data
 tokentracker export --format json > usage.json
 tokentracker export --format csv > usage.csv
+
+# Fail CI if the last 7 days went over $20
+tokentracker budget --days 7 --limit 20
+
+# JSON output for scripts
+tokentracker budget --limit 100 --json
 ```
 
 ### Query from Python
@@ -247,7 +253,8 @@ Yes. By default, all apps using TokenTracker write to the same database (`~/.tok
 ## Roadmap
 
 - [ ] Streaming response support (track tokens from stream chunks)
-- [ ] Cost alerts (notify when daily/monthly spend exceeds threshold)
+- [x] CLI budget checks for daily/monthly spend limits
+- [ ] Cost alerts (desktop/email/Slack notifications)
 - [ ] Embeddings and image API tracking
 - [ ] Smart routing suggestions (detect queries that could use a cheaper model)
 - [ ] Web dashboard (lightweight HTML viewer)

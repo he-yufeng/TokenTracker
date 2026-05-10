@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import sys
 from datetime import datetime
 
 import click
@@ -37,16 +39,18 @@ def dashboard(days: int):
 
     # Summary panel
     console.print()
-    console.print(Panel(
-        f"[bold]Total cost:[/bold] ${s['total_cost_usd']:.4f}\n"
-        f"[bold]API calls:[/bold] {s['total_calls']:,}\n"
-        f"[bold]Tokens:[/bold] {s['total_tokens']:,} "
-        f"({s['total_input_tokens']:,} in / {s['total_output_tokens']:,} out)\n"
-        f"[bold]Avg latency:[/bold] {s['avg_latency_ms']:.0f}ms\n"
-        f"[bold]Models used:[/bold] {s['models_used']}",
-        title=f"[bold cyan]TokenTracker — Last {days} days[/bold cyan]",
-        border_style="cyan",
-    ))
+    console.print(
+        Panel(
+            f"[bold]Total cost:[/bold] ${s['total_cost_usd']:.4f}\n"
+            f"[bold]API calls:[/bold] {s['total_calls']:,}\n"
+            f"[bold]Tokens:[/bold] {s['total_tokens']:,} "
+            f"({s['total_input_tokens']:,} in / {s['total_output_tokens']:,} out)\n"
+            f"[bold]Avg latency:[/bold] {s['avg_latency_ms']:.0f}ms\n"
+            f"[bold]Models used:[/bold] {s['models_used']}",
+            title=f"[bold cyan]TokenTracker — Last {days} days[/bold cyan]",
+            border_style="cyan",
+        )
+    )
 
     # Cost by model
     models = cost_by_model(days=days)
@@ -120,17 +124,72 @@ def recent(limit: int):
 
 
 @main.command()
+@click.option("--limit", "limit_usd", type=float, required=True, help="Budget limit in USD")
+@click.option("--days", "-d", default=30, help="Number of days to look back")
+@click.option(
+    "--warn-at",
+    default=0.8,
+    show_default=True,
+    help="Print a warning when usage reaches this fraction of the limit",
+)
+@click.option("--json", "json_output", is_flag=True, help="Print machine-readable JSON")
+def budget(limit_usd: float, days: int, warn_at: float, json_output: bool):
+    """Check spending against a budget and exit non-zero when it is exceeded."""
+    from tokentracker.query import summary
+
+    if limit_usd <= 0:
+        raise click.UsageError("--limit must be greater than zero")
+    if days <= 0:
+        raise click.UsageError("--days must be greater than zero")
+    if warn_at <= 0:
+        raise click.UsageError("--warn-at must be greater than zero")
+
+    s = summary(days=days)
+    spent = float(s["total_cost_usd"])
+    ratio = spent / limit_usd
+    remaining = max(limit_usd - spent, 0.0)
+    status = "exceeded" if spent > limit_usd else "warn" if ratio >= warn_at else "ok"
+    payload = {
+        "status": status,
+        "days": days,
+        "limit_usd": round(limit_usd, 4),
+        "spent_usd": round(spent, 4),
+        "remaining_usd": round(remaining, 4),
+        "usage_pct": round(ratio * 100, 1),
+        "total_calls": s["total_calls"],
+        "total_tokens": s["total_tokens"],
+    }
+
+    if json_output:
+        click.echo(json.dumps(payload, indent=2))
+    else:
+        style = "red" if status == "exceeded" else "yellow" if status == "warn" else "green"
+        console.print(
+            Panel(
+                f"[bold]Spent:[/bold] ${spent:.4f} / ${limit_usd:.4f}\n"
+                f"[bold]Usage:[/bold] {ratio * 100:.1f}%\n"
+                f"[bold]Remaining:[/bold] ${remaining:.4f}\n"
+                f"[bold]Calls:[/bold] {s['total_calls']:,}\n"
+                f"[bold]Tokens:[/bold] {s['total_tokens']:,}",
+                title=f"[bold {style}]Budget {status} · last {days} days[/bold {style}]",
+                border_style=style,
+            )
+        )
+
+    if status == "exceeded":
+        sys.exit(2)
+
+
+@main.command()
 @click.option("--format", "-f", "fmt", type=click.Choice(["json", "csv"]), default="json")
 @click.option("--days", "-d", default=30)
 def export(fmt: str, days: int):
     """Export usage data to JSON or CSV."""
     import csv
-    import json
-    import sys
 
     from tokentracker.query import recent as get_recent
 
-    calls = get_recent(limit=10000)
+    calls = get_recent(limit=10000, days=days)
     if not calls:
         console.print("[dim]No data to export.[/dim]")
         return
