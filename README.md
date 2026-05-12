@@ -105,6 +105,12 @@ response = client.chat.completions.create(
 )
 # Logged automatically: model, tokens, cost, latency
 
+embedding = client.embeddings.create(
+    model="text-embedding-3-small",
+    input="Embed this text",
+)
+# Also logged automatically, with endpoint="embeddings"
+
 # Async
 from tokentracker import AsyncOpenAI
 client = AsyncOpenAI()
@@ -186,7 +192,7 @@ for call in recent(limit=5):
 
 ## How It Works
 
-TokenTracker wraps the `openai.OpenAI` client class. When you call `client.chat.completions.create()`, it:
+TokenTracker wraps the `openai.OpenAI` client class. When you call `client.chat.completions.create()` or `client.embeddings.create()`, it:
 
 1. Passes the call through to the real OpenAI client (nothing is modified)
 2. After the response comes back, extracts token counts from `response.usage`
@@ -255,7 +261,8 @@ Yes. By default, all apps using TokenTracker write to the same database (`~/.tok
 - [ ] Streaming response support (track tokens from stream chunks)
 - [x] CLI budget checks for daily/monthly spend limits
 - [ ] Cost alerts (desktop/email/Slack notifications)
-- [ ] Embeddings and image API tracking
+- [x] Embeddings API tracking
+- [ ] Image/audio API tracking
 - [ ] Smart routing suggestions (detect queries that could use a cheaper model)
 - [ ] Web dashboard (lightweight HTML viewer)
 - [ ] OpenTelemetry export
