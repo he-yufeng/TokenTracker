@@ -45,28 +45,35 @@ def _normalize_model_name(model: str) -> str | None:
 
     OpenAI returns names like 'gpt-4o-2024-08-06', OpenRouter uses 'openai/gpt-4o', etc.
     """
-    if model in MODEL_PRICES:
-        return model
-
-    # Strip provider prefixes (openai/gpt-4o → gpt-4o)
-    for prefix in ("openai/", "anthropic/", "google/", "deepseek/", "meta-llama/"):
-        if model.startswith(prefix):
-            stripped = model[len(prefix):]
-            if stripped in MODEL_PRICES:
-                return stripped
-
-    # Strip date suffixes (gpt-4o-2024-08-06 → gpt-4o)
     import re
-    base = re.sub(r"-\d{4}-\d{2}-\d{2}$", "", model)
-    if base in MODEL_PRICES:
-        return base
 
-    # Both: prefix + date suffix
-    for prefix in ("openai/", "anthropic/", "google/", "deepseek/", "meta-llama/"):
-        if model.startswith(prefix):
-            base = re.sub(r"-\d{4}-\d{2}-\d{2}$", "", model[len(prefix):])
-            if base in MODEL_PRICES:
-                return base
+    cleaned = model.strip().lower()
+    candidates = [cleaned]
+
+    # OpenRouter sometimes adds a variant marker, e.g. openai/gpt-4o:nitro.
+    if ":" in cleaned:
+        candidates.append(cleaned.split(":", 1)[0])
+
+    # Some proxy logs include an extra routing prefix before the provider.
+    if cleaned.startswith("openrouter/"):
+        candidates.append(cleaned[len("openrouter/"):])
+
+    provider_prefixes = ("openai/", "anthropic/", "google/", "deepseek/", "meta-llama/")
+    for candidate in list(candidates):
+        for prefix in provider_prefixes:
+            if candidate.startswith(prefix):
+                candidates.append(candidate[len(prefix):])
+
+    for candidate in list(candidates):
+        candidates.append(re.sub(r"-\d{4}-\d{2}-\d{2}$", "", candidate))
+
+    seen: set[str] = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if candidate in MODEL_PRICES:
+            return candidate
 
     return None
 

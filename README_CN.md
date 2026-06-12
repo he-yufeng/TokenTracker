@@ -110,7 +110,7 @@ response = await client.chat.completions.create(
 from tokentracker import OpenAI
 
 # OpenRouter（一个 key 用所有模型）
-client = OpenAI(api_key="sk-or-...", base_url="https://openrouter.ai/api/v1")
+client = OpenAI(api_key="<OPENROUTER_API_KEY>", base_url="https://openrouter.ai/api/v1")
 
 # Azure OpenAI
 client = OpenAI(api_key="...", base_url="https://your-resource.openai.azure.com/")
@@ -174,7 +174,7 @@ TokenTracker 包装了 `openai.OpenAI` 客户端类。当你调用 `client.chat.
 
 ## 支持的模型
 
-TokenTracker 内置了 30+ 主流模型的定价，覆盖 OpenAI、Anthropic、Google、DeepSeek、Meta 等。如果你用的模型不在表里，调用仍然会被记录——只是费用栏会显示 "—" 而不是金额。
+TokenTracker 内置了 30+ 主流模型的定价，覆盖 OpenAI、Anthropic、Google、DeepSeek、Meta 等。查询价格前会归一化常见 provider 前缀、OpenRouter 路由前缀、日期后缀和 variant 后缀，所以 `openrouter/openai/gpt-4o-2024-08-06` 仍会按 `gpt-4o` 计价。如果你用的模型不在表里，调用仍然会被记录——只是费用栏会显示 "—" 而不是金额。
 
 完整定价表见 [`tokentracker/pricing.py`](tokentracker/pricing.py)。欢迎提 PR 添加新模型。
 

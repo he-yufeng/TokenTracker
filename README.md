@@ -127,7 +127,7 @@ from tokentracker import OpenAI
 
 # OpenRouter
 client = OpenAI(
-    api_key="sk-or-...",
+    api_key="<OPENROUTER_API_KEY>",
     base_url="https://openrouter.ai/api/v1"
 )
 # Use any model: anthropic/claude-sonnet-4, google/gemini-2.5-pro, etc.
@@ -204,7 +204,7 @@ No proxies. No middleware. No network overhead. Just a thin wrapper that records
 
 ## Supported Models
 
-TokenTracker ships with pricing data for 30+ popular models, including all major OpenAI, Anthropic, Google, DeepSeek, and Meta models. If your model isn't in the table, the call is still logged — the cost field will just show "—" instead of a dollar amount.
+TokenTracker ships with pricing data for 30+ popular models, including all major OpenAI, Anthropic, Google, DeepSeek, and Meta models. It normalizes common provider prefixes, OpenRouter-style routing prefixes, date suffixes, and variant suffixes before looking up prices, so `openrouter/openai/gpt-4o-2024-08-06` still maps to `gpt-4o`. If your model isn't in the table, the call is still logged — the cost field will just show "—" instead of a dollar amount.
 
 You can check the full pricing table in [`tokentracker/pricing.py`](tokentracker/pricing.py). PRs to add new models are welcome.
 
