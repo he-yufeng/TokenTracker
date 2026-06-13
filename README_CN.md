@@ -67,6 +67,12 @@ tokentracker dashboard
 └─────────────────┴───────┴───────────┴──────────┴─────────┘
 ```
 
+如果想看钱到底花在 chat、embeddings 还是其他 API endpoint 上：
+
+```bash
+tokentracker endpoints
+```
+
 ## 为什么用 TokenTracker？
 
 | 特性 | TokenTracker | AgentOps | LangSmith | 手动打 log |

@@ -27,7 +27,7 @@ def main():
 @click.option("--days", "-d", default=30, help="Number of days to look back")
 def dashboard(days: int):
     """Show a summary dashboard of your LLM spending."""
-    from tokentracker.query import cost_by_day, cost_by_model, summary
+    from tokentracker.query import cost_by_day, cost_by_endpoint, cost_by_model, summary
 
     s = summary(days=days)
 
@@ -71,6 +71,28 @@ def dashboard(days: int):
                 f"{tokens:,}",
                 cost_str,
                 f"{m['avg_latency']:.0f}ms",
+            )
+        console.print(t)
+
+    # Endpoint costs
+    endpoints = cost_by_endpoint(days=days)
+    if endpoints:
+        console.print()
+        t = Table(title="Cost by Endpoint", show_lines=False)
+        t.add_column("Endpoint", style="bold")
+        t.add_column("Calls", justify="right")
+        t.add_column("Tokens", justify="right")
+        t.add_column("Cost", justify="right", style="green")
+        t.add_column("Avg Latency", justify="right", style="dim")
+        for e in endpoints:
+            cost_str = f"${e['total_cost']:.4f}" if e["total_cost"] else "—"
+            tokens = (e["input_tokens"] or 0) + (e["output_tokens"] or 0)
+            t.add_row(
+                e["endpoint"],
+                str(e["calls"]),
+                f"{tokens:,}",
+                cost_str,
+                f"{e['avg_latency']:.0f}ms",
             )
         console.print(t)
 
@@ -120,6 +142,39 @@ def recent(limit: int):
             f"{c['latency_ms']:.0f}ms",
             status,
         )
+    console.print(t)
+
+
+@main.command()
+@click.option("--days", "-d", default=30, help="Number of days to look back")
+def endpoints(days: int):
+    """Show usage and cost grouped by API endpoint."""
+    from tokentracker.query import cost_by_endpoint
+
+    rows = cost_by_endpoint(days=days)
+    if not rows:
+        console.print("[dim]No API calls tracked yet.[/dim]")
+        return
+
+    t = Table(title=f"Endpoint Usage — Last {days} days", show_lines=False)
+    t.add_column("Endpoint", style="bold")
+    t.add_column("Calls", justify="right")
+    t.add_column("Input", justify="right")
+    t.add_column("Output", justify="right")
+    t.add_column("Cost", justify="right", style="green")
+    t.add_column("Avg Latency", justify="right", style="dim")
+
+    for row in rows:
+        cost_str = f"${row['total_cost']:.4f}" if row["total_cost"] else "—"
+        t.add_row(
+            row["endpoint"],
+            str(row["calls"]),
+            f"{row['input_tokens'] or 0:,}",
+            f"{row['output_tokens'] or 0:,}",
+            cost_str,
+            f"{row['avg_latency']:.0f}ms",
+        )
+
     console.print(t)
 
 

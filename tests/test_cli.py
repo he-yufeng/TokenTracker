@@ -55,3 +55,34 @@ def test_budget_exits_nonzero_when_exceeded(tmp_path, monkeypatch):
     assert result.exit_code == 2
     payload = json.loads(result.output)
     assert payload["status"] == "exceeded"
+
+
+def test_endpoints_groups_cost_by_endpoint(tmp_path, monkeypatch):
+    db_path = str(tmp_path / "usage.db")
+    monkeypatch.setattr(db, "DEFAULT_DB_PATH", db_path)
+    log_call(
+        "gpt-4o",
+        100,
+        50,
+        150,
+        0.25,
+        500.0,
+        endpoint="chat.completions",
+        db_path=db_path,
+    )
+    log_call(
+        "text-embedding-3-small",
+        200,
+        0,
+        200,
+        0.02,
+        80.0,
+        endpoint="embeddings",
+        db_path=db_path,
+    )
+
+    result = CliRunner().invoke(main, ["endpoints", "--days", "1"])
+
+    assert result.exit_code == 0, result.output
+    assert "chat.completions" in result.output
+    assert "embeddings" in result.output

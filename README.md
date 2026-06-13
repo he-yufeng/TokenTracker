@@ -77,6 +77,12 @@ tokentracker dashboard
 └────────────┴───────┴──────────┴─────────┘
 ```
 
+Need to know whether chat, embeddings, or another API surface is burning the budget?
+
+```bash
+tokentracker endpoints
+```
+
 ## Why TokenTracker?
 
 | Feature | TokenTracker | AgentOps | LangSmith | Manual logging |
