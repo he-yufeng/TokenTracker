@@ -175,14 +175,18 @@ tokentracker budget --limit 100 --json
 # Put a separate CI budget around an expensive model or endpoint
 tokentracker budget --days 7 --limit 10 --model gpt-4o
 tokentracker budget --days 7 --limit 2 --endpoint embeddings --json
+
+# Project the current seven-day run rate over the next month
+tokentracker forecast --days 7 --forecast-days 30
+tokentracker forecast --model gpt-4o --endpoint chat.completions --json
 ```
 
-Scoped budgets use exact model and endpoint names, so one noisy workload can fail CI without hiding inside the account-wide total.
+Scoped budgets and forecasts use exact model and endpoint names, so one noisy workload can be inspected without hiding inside the account-wide total. Forecasts are deliberately simple run-rate projections, not statistical predictions.
 
 ### Query from Python
 
 ```python
-from tokentracker import summary, cost_by_model, cost_by_day, recent
+from tokentracker import cost_by_day, cost_by_model, recent, spend_forecast, summary
 
 # Overall summary
 s = summary(days=30)

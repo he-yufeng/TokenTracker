@@ -247,6 +247,53 @@ def budget(
 
 
 @main.command()
+@click.option("--days", "-d", default=7, show_default=True, help="Observed days to use")
+@click.option("--forecast-days", default=30, show_default=True, help="Days to project")
+@click.option("--model", help="Only count calls using this exact model name")
+@click.option("--endpoint", help="Only count calls using this API endpoint")
+@click.option("--json", "json_output", is_flag=True, help="Print machine-readable JSON")
+def forecast(
+    days: int,
+    forecast_days: int,
+    model: str | None,
+    endpoint: str | None,
+    json_output: bool,
+):
+    """Project future spend from the current daily run rate."""
+    from tokentracker.query import spend_forecast
+
+    if days <= 0:
+        raise click.UsageError("--days must be greater than zero")
+    if forecast_days <= 0:
+        raise click.UsageError("--forecast-days must be greater than zero")
+
+    payload = spend_forecast(
+        days=days,
+        forecast_days=forecast_days,
+        model=model,
+        endpoint=endpoint,
+    )
+    if json_output:
+        click.echo(json.dumps(payload, indent=2))
+        return
+
+    scope = " · ".join(part for part in [model, endpoint] if part) or "all calls"
+    console.print(
+        Panel(
+            f"[bold]Observed spend:[/bold] ${payload['observed_cost_usd']:.4f}\n"
+            f"[bold]Daily run rate:[/bold] ${payload['daily_cost_usd']:.4f}\n"
+            f"[bold]Projected spend:[/bold] ${payload['projected_cost_usd']:.4f}\n"
+            f"[bold]Projected calls:[/bold] {payload['projected_calls']:,}",
+            title=(
+                f"[bold cyan]Forecast · {scope} · "
+                f"{days} observed days → {forecast_days} projected days[/bold cyan]"
+            ),
+            border_style="cyan",
+        )
+    )
+
+
+@main.command()
 @click.option("--format", "-f", "fmt", type=click.Choice(["json", "csv"]), default="json")
 @click.option("--days", "-d", default=30)
 def export(fmt: str, days: int):

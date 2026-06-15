@@ -134,3 +134,58 @@ def test_budget_can_target_model_and_endpoint(tmp_path, monkeypatch):
         "model": "text-embedding-3-small",
         "endpoint": "embeddings",
     }
+
+
+def test_forecast_projects_scoped_run_rate(tmp_path, monkeypatch):
+    db_path = str(tmp_path / "usage.db")
+    monkeypatch.setattr(db, "DEFAULT_DB_PATH", db_path)
+    log_call(
+        "gpt-4o",
+        100,
+        50,
+        150,
+        0.70,
+        500.0,
+        endpoint="chat.completions",
+        db_path=db_path,
+    )
+    log_call(
+        "text-embedding-3-small",
+        200,
+        0,
+        200,
+        0.05,
+        80.0,
+        endpoint="embeddings",
+        db_path=db_path,
+    )
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "forecast",
+            "--days",
+            "7",
+            "--forecast-days",
+            "28",
+            "--model",
+            "gpt-4o",
+            "--endpoint",
+            "chat.completions",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["observed_cost_usd"] == 0.7
+    assert payload["projected_cost_usd"] == 2.8
+    assert payload["projected_calls"] == 4
+    assert payload["scope"]["model"] == "gpt-4o"
+
+
+def test_forecast_rejects_invalid_window():
+    result = CliRunner().invoke(main, ["forecast", "--days", "0"])
+
+    assert result.exit_code != 0
+    assert "--days must be greater than zero" in result.output

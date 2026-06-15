@@ -46,6 +46,29 @@ def summary(
     }
 
 
+def spend_forecast(
+    days: int = 7,
+    forecast_days: int = 30,
+    db_path: str | None = None,
+    model: str | None = None,
+    endpoint: str | None = None,
+) -> dict:
+    """Project spend and calls using the observed daily run rate."""
+    observed = summary(days=days, db_path=db_path, model=model, endpoint=endpoint)
+    daily_cost = float(observed["total_cost_usd"]) / days
+    daily_calls = float(observed["total_calls"]) / days
+    return {
+        "lookback_days": days,
+        "forecast_days": forecast_days,
+        "observed_cost_usd": observed["total_cost_usd"],
+        "observed_calls": observed["total_calls"],
+        "daily_cost_usd": round(daily_cost, 4),
+        "projected_cost_usd": round(daily_cost * forecast_days, 4),
+        "projected_calls": round(daily_calls * forecast_days),
+        "scope": {"model": model, "endpoint": endpoint},
+    }
+
+
 def recent(limit: int = 20, days: int | None = None, db_path: str | None = None) -> list[dict]:
     """Get the most recent API calls."""
     conn = get_db(db_path)

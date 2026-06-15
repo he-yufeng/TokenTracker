@@ -149,14 +149,18 @@ tokentracker budget --limit 100 --json
 # 单独限制昂贵模型或某类 API endpoint
 tokentracker budget --days 7 --limit 10 --model gpt-4o
 tokentracker budget --days 7 --limit 2 --endpoint embeddings --json
+
+# 把最近 7 天的日均花费投影到未来 30 天
+tokentracker forecast --days 7 --forecast-days 30
+tokentracker forecast --model gpt-4o --endpoint chat.completions --json
 ```
 
-作用域预算按模型名和 endpoint 精确匹配，可以让某个异常工作负载单独触发 CI，而不是被总账单掩盖。
+作用域预算和预测按模型名与 endpoint 精确匹配，可以单独观察异常工作负载，而不是让它被总账单掩盖。预测采用简单的日均 run-rate 投影，不冒充统计预测模型。
 
 ### Python 查询接口
 
 ```python
-from tokentracker import summary, cost_by_model, cost_by_day, recent
+from tokentracker import cost_by_day, cost_by_model, recent, spend_forecast, summary
 
 # 总览
 s = summary(days=30)
