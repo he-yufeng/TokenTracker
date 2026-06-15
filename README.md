@@ -171,7 +171,13 @@ tokentracker budget --days 7 --limit 20
 
 # JSON output for scripts
 tokentracker budget --limit 100 --json
+
+# Put a separate CI budget around an expensive model or endpoint
+tokentracker budget --days 7 --limit 10 --model gpt-4o
+tokentracker budget --days 7 --limit 2 --endpoint embeddings --json
 ```
+
+Scoped budgets use exact model and endpoint names, so one noisy workload can fail CI without hiding inside the account-wide total.
 
 ### Query from Python
 

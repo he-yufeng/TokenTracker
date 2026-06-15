@@ -188,7 +188,16 @@ def endpoints(days: int):
     help="Print a warning when usage reaches this fraction of the limit",
 )
 @click.option("--json", "json_output", is_flag=True, help="Print machine-readable JSON")
-def budget(limit_usd: float, days: int, warn_at: float, json_output: bool):
+@click.option("--model", help="Only count calls using this exact model name")
+@click.option("--endpoint", help="Only count calls using this API endpoint")
+def budget(
+    limit_usd: float,
+    days: int,
+    warn_at: float,
+    json_output: bool,
+    model: str | None,
+    endpoint: str | None,
+):
     """Check spending against a budget and exit non-zero when it is exceeded."""
     from tokentracker.query import summary
 
@@ -199,7 +208,7 @@ def budget(limit_usd: float, days: int, warn_at: float, json_output: bool):
     if warn_at <= 0:
         raise click.UsageError("--warn-at must be greater than zero")
 
-    s = summary(days=days)
+    s = summary(days=days, model=model, endpoint=endpoint)
     spent = float(s["total_cost_usd"])
     ratio = spent / limit_usd
     remaining = max(limit_usd - spent, 0.0)
@@ -213,12 +222,14 @@ def budget(limit_usd: float, days: int, warn_at: float, json_output: bool):
         "usage_pct": round(ratio * 100, 1),
         "total_calls": s["total_calls"],
         "total_tokens": s["total_tokens"],
+        "scope": {"model": model, "endpoint": endpoint},
     }
 
     if json_output:
         click.echo(json.dumps(payload, indent=2))
     else:
         style = "red" if status == "exceeded" else "yellow" if status == "warn" else "green"
+        scope = " · ".join(part for part in [model, endpoint] if part) or "all calls"
         console.print(
             Panel(
                 f"[bold]Spent:[/bold] ${spent:.4f} / ${limit_usd:.4f}\n"
@@ -226,7 +237,7 @@ def budget(limit_usd: float, days: int, warn_at: float, json_output: bool):
                 f"[bold]Remaining:[/bold] ${remaining:.4f}\n"
                 f"[bold]Calls:[/bold] {s['total_calls']:,}\n"
                 f"[bold]Tokens:[/bold] {s['total_tokens']:,}",
-                title=f"[bold {style}]Budget {status} · last {days} days[/bold {style}]",
+                title=f"[bold {style}]Budget {status} · {scope} · last {days} days[/bold {style}]",
                 border_style=style,
             )
         )

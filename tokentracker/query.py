@@ -5,11 +5,24 @@ from __future__ import annotations
 from tokentracker.db import get_db
 
 
-def summary(days: int = 30, db_path: str | None = None) -> dict:
+def summary(
+    days: int = 30,
+    db_path: str | None = None,
+    model: str | None = None,
+    endpoint: str | None = None,
+) -> dict:
     """Get a summary of usage over the last N days."""
     conn = get_db(db_path)
+    filters = ["timestamp > unixepoch('now', ?)", "status = 'ok'"]
+    params: list[object] = [f"-{days} days"]
+    if model:
+        filters.append("model = ?")
+        params.append(model)
+    if endpoint:
+        filters.append("COALESCE(endpoint, 'unknown') = ?")
+        params.append(endpoint)
     cur = conn.execute(
-        """SELECT
+        f"""SELECT
             COUNT(*) as total_calls,
             COALESCE(SUM(input_tokens), 0) as total_input_tokens,
             COALESCE(SUM(output_tokens), 0) as total_output_tokens,
@@ -18,9 +31,8 @@ def summary(days: int = 30, db_path: str | None = None) -> dict:
             COALESCE(AVG(latency_ms), 0) as avg_latency,
             COUNT(DISTINCT model) as models_used
         FROM calls
-        WHERE timestamp > unixepoch('now', ?)
-          AND status = 'ok'""",
-        (f"-{days} days",),
+        WHERE {" AND ".join(filters)}""",
+        params,
     )
     row = cur.fetchone()
     return {

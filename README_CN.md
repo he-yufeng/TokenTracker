@@ -145,7 +145,13 @@ tokentracker budget --days 7 --limit 20
 
 # 脚本里用 JSON 输出
 tokentracker budget --limit 100 --json
+
+# 单独限制昂贵模型或某类 API endpoint
+tokentracker budget --days 7 --limit 10 --model gpt-4o
+tokentracker budget --days 7 --limit 2 --endpoint embeddings --json
 ```
+
+作用域预算按模型名和 endpoint 精确匹配，可以让某个异常工作负载单独触发 CI，而不是被总账单掩盖。
 
 ### Python 查询接口
 
