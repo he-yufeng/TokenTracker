@@ -183,11 +183,17 @@ tokentracker forecast --model gpt-4o --endpoint chat.completions --json
 # Find spend spikes, concentration, and cheaper-model opportunities
 tokentracker insights
 tokentracker insights --days 14 --json
+
+# Reprice your actual token volume on other models and providers
+tokentracker compare
+tokentracker compare --endpoint chat.completions -c gpt-4o-mini -c claude-sonnet-4-6 --json
 ```
 
 Scoped budgets and forecasts use exact model and endpoint names, so one noisy workload can be inspected without hiding inside the account-wide total. Forecasts are deliberately simple run-rate projections, not statistical predictions.
 
 `insights` reads the same data and points at the things worth acting on: days whose cost jumps well above the recent baseline (flagged with a modified z-score, which is robust to the spike itself), whether one model or endpoint dominates the bill, and where an expensive model is doing work a cheaper one already in your logs could handle. The cheaper-model suggestion reprices the small calls against the cheapest model you actually use, so the estimated savings come from your own pricing, not a guess.
+
+`compare` takes the whole picture: it sums the input/output tokens of the scoped calls and reprices that exact workload on every model in the pricing table, cheapest first, with the delta against what you actually spent. Where `insights` only reroutes the small calls within models you already run, `compare` answers the broader "what if I moved this traffic to another provider entirely?" question. Chat and embedding tokens are summed together, so pass `--endpoint` when those should not be mixed, and `-c/--candidate` to limit the comparison to a short list.
 
 ### Query from Python
 

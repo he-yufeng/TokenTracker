@@ -70,6 +70,77 @@ def spend_forecast(
     }
 
 
+def model_comparison(
+    days: int = 30,
+    db_path: str | None = None,
+    model: str | None = None,
+    endpoint: str | None = None,
+    candidates: list[str] | None = None,
+) -> dict:
+    """Re-price the observed token volume against every known model.
+
+    Aggregates the input/output tokens of the scoped, successful calls and
+    reprices that same workload on each candidate model, ranked cheapest first.
+    Answers "what would my actual traffic cost on a different model or provider?".
+
+    Token counts from chat and embedding calls are summed together, so scope the
+    query with ``endpoint`` when those workloads should not be mixed.
+    """
+    from tokentracker.pricing import MODEL_PRICES
+
+    conn = get_db(db_path)
+    filters = ["timestamp > unixepoch('now', ?)", "status = 'ok'"]
+    params: list[object] = [f"-{days} days"]
+    if model:
+        filters.append("model = ?")
+        params.append(model)
+    if endpoint:
+        filters.append("COALESCE(endpoint, 'unknown') = ?")
+        params.append(endpoint)
+    cur = conn.execute(
+        f"""SELECT
+            COUNT(*) as total_calls,
+            COALESCE(SUM(input_tokens), 0) as input_tokens,
+            COALESCE(SUM(output_tokens), 0) as output_tokens,
+            COALESCE(SUM(cost_usd), 0) as current_cost,
+            COALESCE(SUM(CASE WHEN cost_usd IS NOT NULL THEN 1 ELSE 0 END), 0) as priced_calls
+        FROM calls
+        WHERE {" AND ".join(filters)}""",
+        params,
+    )
+    total_calls, input_tokens, output_tokens, current_cost, priced_calls = cur.fetchone()
+    current_cost = float(current_cost)
+
+    names = candidates if candidates else sorted(MODEL_PRICES)
+    options = []
+    for name in names:
+        projected = estimate_cost(name, input_tokens, output_tokens)
+        if projected is None:
+            continue
+        delta = projected - current_cost
+        options.append(
+            {
+                "model": name,
+                "projected_cost_usd": round(projected, 4),
+                "delta_usd": round(delta, 4),
+                "delta_pct": round(delta / current_cost * 100, 1) if current_cost > 0 else None,
+            }
+        )
+    options.sort(key=lambda o: o["projected_cost_usd"])
+
+    return {
+        "days": days,
+        "scope": {"model": model, "endpoint": endpoint},
+        "total_calls": total_calls,
+        "priced_calls": priced_calls,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "current_cost_usd": round(current_cost, 4),
+        "cheapest": options[0] if options else None,
+        "options": options,
+    }
+
+
 def insights(days: int = 30, db_path: str | None = None) -> dict:
     """Analyze tracked usage and surface anomalies, concentration and savings.
 

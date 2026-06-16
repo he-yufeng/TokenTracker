@@ -157,11 +157,17 @@ tokentracker forecast --model gpt-4o --endpoint chat.completions --json
 # 找出花费异常、费用集中、以及可以换便宜模型的地方
 tokentracker insights
 tokentracker insights --days 14 --json
+
+# 把你实际的 token 用量拿到别的模型和厂商上重新算一遍价
+tokentracker compare
+tokentracker compare --endpoint chat.completions -c gpt-4o-mini -c claude-sonnet-4-6 --json
 ```
 
 作用域预算和预测按模型名与 endpoint 精确匹配，可以单独观察异常工作负载，而不是让它被总账单掩盖。预测采用简单的日均 run-rate 投影，不冒充统计预测模型。
 
 `insights` 读的是同一份数据，只把值得动手的地方挑出来：花费明显高于近期基线的日子（用修正 z-score 标记，对尖峰本身不敏感）、是否有某个模型或 endpoint 吃掉了大部分账单、以及哪个贵模型在干一份你日志里已有的便宜模型就能干的活。换便宜模型的建议会拿这些小调用按你实际在用的最便宜模型重新计价，所以省下来的钱是基于你自己的定价算出来的，不是拍脑袋。
+
+`compare` 看的是整体：它把作用域内调用的输入/输出 token 加起来，再用定价表里每个模型给这同一份工作量重新算一遍价，从便宜到贵排好，并附上和你实际花费的差额。`insights` 只在你已经用着的模型里挪小调用，`compare` 回答的是更大的问题——“这批流量整个换到另一家厂商会是多少钱？”。chat 和 embedding 的 token 是合在一起算的，所以两类负载不该混算时记得加 `--endpoint`，想只比几个模型就用 `-c/--candidate`。
 
 ### Python 查询接口
 

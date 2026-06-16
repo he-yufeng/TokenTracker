@@ -8,6 +8,7 @@ from tokentracker.query import (
     cost_by_day,
     cost_by_model,
     insights,
+    model_comparison,
     recent,
     spend_forecast,
     summary,
@@ -23,4 +24,5 @@ __all__ = [
     "cost_by_day",
     "spend_forecast",
     "insights",
+    "model_comparison",
 ]

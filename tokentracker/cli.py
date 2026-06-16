@@ -372,6 +372,82 @@ def insights(days: int, json_output: bool):
 
 
 @main.command()
+@click.option("--days", "-d", default=30, show_default=True, help="Number of days to look back")
+@click.option("--model", help="Only count calls using this exact model name")
+@click.option("--endpoint", help="Only count calls using this API endpoint")
+@click.option(
+    "--candidate",
+    "-c",
+    "candidates",
+    multiple=True,
+    help="Restrict the comparison to these model names (repeatable)",
+)
+@click.option("--top", default=10, show_default=True, help="How many models to display")
+@click.option("--json", "json_output", is_flag=True, help="Print machine-readable JSON")
+def compare(
+    days: int,
+    model: str | None,
+    endpoint: str | None,
+    candidates: tuple[str, ...],
+    top: int,
+    json_output: bool,
+):
+    """Re-price your tracked token volume against other models and providers."""
+    from tokentracker.query import model_comparison
+
+    if days <= 0:
+        raise click.UsageError("--days must be greater than zero")
+    if top <= 0:
+        raise click.UsageError("--top must be greater than zero")
+
+    data = model_comparison(
+        days=days,
+        model=model,
+        endpoint=endpoint,
+        candidates=list(candidates) or None,
+    )
+
+    if json_output:
+        click.echo(json.dumps(data, indent=2))
+        return
+
+    if data["total_calls"] == 0:
+        console.print("[dim]No API calls tracked yet.[/dim]")
+        return
+
+    scope = " · ".join(part for part in [model, endpoint] if part) or "all calls"
+    console.print()
+    console.print(
+        Panel(
+            f"[bold]Tracked spend:[/bold] ${data['current_cost_usd']:.4f}\n"
+            f"[bold]Calls:[/bold] {data['total_calls']:,} ({data['priced_calls']:,} priced)\n"
+            f"[bold]Tokens:[/bold] {data['input_tokens']:,} in / {data['output_tokens']:,} out",
+            title=f"[bold cyan]Cost comparison · {scope} · last {days} days[/bold cyan]",
+            border_style="cyan",
+        )
+    )
+
+    if not data["options"]:
+        console.print("\n[dim]No known models to compare against.[/dim]")
+        return
+
+    t = Table(title="Same workload, priced per model", show_lines=False)
+    t.add_column("Model", style="bold")
+    t.add_column("Projected", justify="right", style="green")
+    t.add_column("vs tracked", justify="right")
+    for o in data["options"][:top]:
+        if o["delta_usd"] < 0:
+            delta = f"[green]-${abs(o['delta_usd']):.4f}[/green]"
+        elif o["delta_usd"] > 0:
+            delta = f"[red]+${o['delta_usd']:.4f}[/red]"
+        else:
+            delta = "—"
+        t.add_row(o["model"], f"${o['projected_cost_usd']:.4f}", delta)
+    console.print()
+    console.print(t)
+
+
+@main.command()
 @click.option("--format", "-f", "fmt", type=click.Choice(["json", "csv"]), default="json")
 @click.option("--days", "-d", default=30)
 def export(fmt: str, days: int):

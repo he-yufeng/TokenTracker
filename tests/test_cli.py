@@ -322,3 +322,73 @@ def test_insights_cli_empty_db(tmp_path, monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert "No API calls tracked yet." in result.output
+
+
+def test_compare_reprices_workload_and_ranks_cheapest(tmp_path):
+    from tokentracker.pricing import estimate_cost
+    from tokentracker.query import model_comparison
+
+    db_path = str(tmp_path / "usage.db")
+    conn = get_db(db_path)
+    now = time.time()
+    _insert(conn, model="gpt-4o", input_tokens=1000, output_tokens=500,
+            cost_usd=estimate_cost("gpt-4o", 1000, 500), ts=now)
+
+    data = model_comparison(days=30, db_path=db_path)
+
+    assert data["input_tokens"] == 1000
+    assert data["output_tokens"] == 500
+    # Options are sorted cheapest first and the head matches "cheapest".
+    costs = [o["projected_cost_usd"] for o in data["options"]]
+    assert costs == sorted(costs)
+    assert data["cheapest"] == data["options"][0]
+    # The 8b Llama is the cheapest model in the table for this token mix.
+    assert data["cheapest"]["model"] == "meta-llama/llama-3.1-8b-instruct"
+
+    by_model = {o["model"]: o for o in data["options"]}
+    expected = round(estimate_cost("gpt-4o", 1000, 500), 4)
+    assert by_model["gpt-4o"]["projected_cost_usd"] == expected
+    # Repricing onto the same model nets out against the tracked spend.
+    assert by_model["gpt-4o"]["delta_usd"] == 0.0
+
+
+def test_compare_restricts_to_named_candidates(tmp_path):
+    from tokentracker.query import model_comparison
+
+    db_path = str(tmp_path / "usage.db")
+    conn = get_db(db_path)
+    now = time.time()
+    _insert(conn, model="gpt-4o", input_tokens=1000, output_tokens=500,
+            cost_usd=0.0075, ts=now)
+
+    data = model_comparison(
+        days=30,
+        db_path=db_path,
+        candidates=["gpt-4o-mini", "claude-sonnet-4-6", "not-a-real-model"],
+    )
+
+    # Unknown candidates are skipped, the rest are priced.
+    assert {o["model"] for o in data["options"]} == {"gpt-4o-mini", "claude-sonnet-4-6"}
+
+
+def test_compare_cli_json(tmp_path, monkeypatch):
+    db_path = str(tmp_path / "usage.db")
+    monkeypatch.setattr(db, "DEFAULT_DB_PATH", db_path)
+    log_call("gpt-4o", 1000, 500, 1500, 0.0075, 500.0, db_path=db_path)
+
+    result = CliRunner().invoke(main, ["compare", "--json"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["total_calls"] == 1
+    assert payload["cheapest"]["model"] == "meta-llama/llama-3.1-8b-instruct"
+
+
+def test_compare_cli_empty_db(tmp_path, monkeypatch):
+    db_path = str(tmp_path / "usage.db")
+    monkeypatch.setattr(db, "DEFAULT_DB_PATH", db_path)
+
+    result = CliRunner().invoke(main, ["compare"])
+
+    assert result.exit_code == 0, result.output
+    assert "No API calls tracked yet." in result.output
