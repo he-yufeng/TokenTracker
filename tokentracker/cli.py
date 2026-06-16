@@ -294,6 +294,84 @@ def forecast(
 
 
 @main.command()
+@click.option("--days", "-d", default=30, show_default=True, help="Number of days to analyze")
+@click.option("--json", "json_output", is_flag=True, help="Print machine-readable JSON")
+def insights(days: int, json_output: bool):
+    """Surface spend anomalies, cost concentration and savings opportunities."""
+    from tokentracker.query import insights as get_insights
+
+    if days <= 0:
+        raise click.UsageError("--days must be greater than zero")
+
+    data = get_insights(days=days)
+
+    if json_output:
+        click.echo(json.dumps(data, indent=2))
+        return
+
+    if data["total_calls"] == 0:
+        console.print("[dim]No API calls tracked yet.[/dim]")
+        return
+
+    conc = data["concentration"]
+    lines = [
+        f"[bold]Total cost:[/bold] ${data['total_cost_usd']:.4f}",
+        f"[bold]API calls:[/bold] {data['total_calls']:,}",
+    ]
+    if conc["top_model"]:
+        tm = conc["top_model"]
+        lines.append(
+            f"[bold]Top model:[/bold] {tm['model']} "
+            f"(${tm['cost_usd']:.4f}, {tm['share'] * 100:.0f}% of spend)"
+        )
+    if conc["top_endpoint"]:
+        te = conc["top_endpoint"]
+        lines.append(f"[bold]Top endpoint:[/bold] {te['endpoint']} ({te['share'] * 100:.0f}%)")
+
+    console.print()
+    console.print(
+        Panel(
+            "\n".join(lines),
+            title=f"[bold cyan]TokenTracker insights — last {days} days[/bold cyan]",
+            border_style="cyan",
+        )
+    )
+
+    if conc["dominated"] and conc["top_model"]:
+        tm = conc["top_model"]
+        console.print(
+            f"\n[yellow]{tm['model']} is {tm['share'] * 100:.0f}% of your spend; "
+            "a regression there moves the whole bill.[/yellow]"
+        )
+
+    if data["anomalies"]:
+        console.print()
+        t = Table(title="Spend anomalies", show_lines=False)
+        t.add_column("Date", style="bold")
+        t.add_column("Cost", justify="right", style="green")
+        t.add_column("Baseline", justify="right", style="dim")
+        t.add_column("Calls", justify="right")
+        t.add_column("Above baseline", justify="right", style="red")
+        for a in data["anomalies"]:
+            t.add_row(
+                a["date"],
+                f"${a['cost_usd']:.4f}",
+                f"${a['baseline_usd']:.4f}",
+                str(a["calls"]),
+                f"{a['z_score']:.1f}σ",
+            )
+        console.print(t)
+
+    if data["suggestions"]:
+        console.print("\n[bold]Suggestions[/bold]")
+        for sg in data["suggestions"]:
+            console.print(f"  - {sg['message']}")
+
+    if not data["anomalies"] and not conc["dominated"] and not data["suggestions"]:
+        console.print("\n[dim]Nothing notable: no anomalies, concentration or savings found.[/dim]")
+
+
+@main.command()
 @click.option("--format", "-f", "fmt", type=click.Choice(["json", "csv"]), default="json")
 @click.option("--days", "-d", default=30)
 def export(fmt: str, days: int):

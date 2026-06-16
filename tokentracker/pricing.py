@@ -88,3 +88,15 @@ def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float | 
         return None
     input_cost, output_cost = MODEL_PRICES[key]
     return (input_tokens * input_cost + output_tokens * output_cost) / 1_000_000
+
+
+def blended_price(model: str) -> float | None:
+    """Average of input and output price per 1M tokens, or None if the model is unknown.
+
+    Useful for ranking models by rough relative cost without knowing the token mix.
+    """
+    key = _normalize_model_name(model)
+    if key is None:
+        return None
+    input_cost, output_cost = MODEL_PRICES[key]
+    return (input_cost + output_cost) / 2

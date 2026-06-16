@@ -189,3 +189,136 @@ def test_forecast_rejects_invalid_window():
 
     assert result.exit_code != 0
     assert "--days must be greater than zero" in result.output
+
+
+def _insert(conn, *, model, input_tokens, output_tokens, cost_usd, ts, endpoint="chat.completions"):
+    conn.execute(
+        """INSERT INTO calls
+           (timestamp, model, input_tokens, output_tokens, total_tokens,
+            cost_usd, latency_ms, endpoint, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ok')""",
+        (ts, model, input_tokens, output_tokens, input_tokens + output_tokens,
+         cost_usd, 100.0, endpoint),
+    )
+    conn.commit()
+
+
+def test_insights_flags_a_spend_spike(tmp_path):
+    from tokentracker.query import insights
+
+    db_path = str(tmp_path / "usage.db")
+    conn = get_db(db_path)
+    now = time.time()
+    baseline = {1: 0.50, 2: 0.55, 3: 0.50, 4: 0.60, 5: 0.52}
+    for day, cost in baseline.items():
+        _insert(conn, model="gpt-4o", input_tokens=100, output_tokens=50,
+                cost_usd=cost, ts=now - day * 86400)
+    _insert(conn, model="gpt-4o", input_tokens=100, output_tokens=50,
+            cost_usd=5.0, ts=now)
+
+    data = insights(days=30, db_path=db_path)
+    anomalies = data["anomalies"]
+
+    assert len(anomalies) == 1
+    assert anomalies[0]["cost_usd"] == 5.0
+    assert anomalies[0]["z_score"] >= 3.5
+
+
+def test_insights_no_anomaly_on_flat_spend(tmp_path):
+    from tokentracker.query import insights
+
+    db_path = str(tmp_path / "usage.db")
+    conn = get_db(db_path)
+    now = time.time()
+    for day in range(1, 6):
+        _insert(conn, model="gpt-4o", input_tokens=100, output_tokens=50,
+                cost_usd=0.50, ts=now - day * 86400)
+
+    assert insights(days=30, db_path=db_path)["anomalies"] == []
+
+
+def test_insights_reports_cost_concentration(tmp_path):
+    from tokentracker.query import insights
+
+    db_path = str(tmp_path / "usage.db")
+    conn = get_db(db_path)
+    now = time.time()
+    _insert(conn, model="gpt-4o", input_tokens=1000, output_tokens=1000,
+            cost_usd=0.90, ts=now)
+    _insert(conn, model="gpt-4o-mini", input_tokens=1000, output_tokens=1000,
+            cost_usd=0.10, ts=now)
+
+    conc = insights(days=30, db_path=db_path)["concentration"]
+
+    assert conc["dominated"] is True
+    assert conc["top_model"]["model"] == "gpt-4o"
+    assert conc["top_model"]["share"] == 0.9
+
+
+def test_insights_suggests_cheaper_model(tmp_path):
+    from tokentracker.pricing import estimate_cost
+    from tokentracker.query import insights
+
+    db_path = str(tmp_path / "usage.db")
+    conn = get_db(db_path)
+    now = time.time()
+    # gpt-4o doing eight small calls plus three genuinely large ones.
+    for _ in range(8):
+        _insert(conn, model="gpt-4o", input_tokens=500, output_tokens=500,
+                cost_usd=estimate_cost("gpt-4o", 500, 500), ts=now)
+    for _ in range(3):
+        _insert(conn, model="gpt-4o", input_tokens=10000, output_tokens=10000,
+                cost_usd=estimate_cost("gpt-4o", 10000, 10000), ts=now)
+    for _ in range(5):
+        _insert(conn, model="gpt-4o-mini", input_tokens=250, output_tokens=250,
+                cost_usd=estimate_cost("gpt-4o-mini", 250, 250), ts=now)
+
+    suggestions = insights(days=30, db_path=db_path)["suggestions"]
+    routing = next(s for s in suggestions if s["kind"] == "cheaper_model")
+
+    assert routing["model"] == "gpt-4o"
+    assert routing["alternative"] == "gpt-4o-mini"
+    assert routing["small_calls"] == 8
+    assert routing["estimated_savings_usd"] > 0
+
+
+def test_insights_flags_untracked_pricing(tmp_path):
+    from tokentracker.query import insights
+
+    db_path = str(tmp_path / "usage.db")
+    conn = get_db(db_path)
+    now = time.time()
+    _insert(conn, model="gpt-4o", input_tokens=100, output_tokens=50,
+            cost_usd=0.25, ts=now)
+    for _ in range(3):
+        _insert(conn, model="mystery-model", input_tokens=100, output_tokens=50,
+                cost_usd=None, ts=now)
+
+    suggestions = insights(days=30, db_path=db_path)["suggestions"]
+    missing = next(s for s in suggestions if s["kind"] == "missing_pricing")
+
+    assert "mystery-model" in missing["models"]
+    assert missing["calls"] == 3
+
+
+def test_insights_cli_json(tmp_path, monkeypatch):
+    db_path = str(tmp_path / "usage.db")
+    monkeypatch.setattr(db, "DEFAULT_DB_PATH", db_path)
+    log_call("gpt-4o", 100, 50, 150, 0.25, 500.0, db_path=db_path)
+
+    result = CliRunner().invoke(main, ["insights", "--json"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["total_calls"] == 1
+    assert set(payload) >= {"anomalies", "concentration", "suggestions"}
+
+
+def test_insights_cli_empty_db(tmp_path, monkeypatch):
+    db_path = str(tmp_path / "usage.db")
+    monkeypatch.setattr(db, "DEFAULT_DB_PATH", db_path)
+
+    result = CliRunner().invoke(main, ["insights"])
+
+    assert result.exit_code == 0, result.output
+    assert "No API calls tracked yet." in result.output

@@ -179,19 +179,29 @@ tokentracker budget --days 7 --limit 2 --endpoint embeddings --json
 # Project the current seven-day run rate over the next month
 tokentracker forecast --days 7 --forecast-days 30
 tokentracker forecast --model gpt-4o --endpoint chat.completions --json
+
+# Find spend spikes, concentration, and cheaper-model opportunities
+tokentracker insights
+tokentracker insights --days 14 --json
 ```
 
 Scoped budgets and forecasts use exact model and endpoint names, so one noisy workload can be inspected without hiding inside the account-wide total. Forecasts are deliberately simple run-rate projections, not statistical predictions.
 
+`insights` reads the same data and points at the things worth acting on: days whose cost jumps well above the recent baseline (flagged with a modified z-score, which is robust to the spike itself), whether one model or endpoint dominates the bill, and where an expensive model is doing work a cheaper one already in your logs could handle. The cheaper-model suggestion reprices the small calls against the cheapest model you actually use, so the estimated savings come from your own pricing, not a guess.
+
 ### Query from Python
 
 ```python
-from tokentracker import cost_by_day, cost_by_model, recent, spend_forecast, summary
+from tokentracker import cost_by_day, cost_by_model, insights, recent, spend_forecast, summary
 
 # Overall summary
 s = summary(days=30)
 print(f"Total cost: ${s['total_cost_usd']:.2f}")
 print(f"Total calls: {s['total_calls']}")
+
+# Actionable findings (anomalies, concentration, savings)
+for s in insights(days=30)["suggestions"]:
+    print(s["message"])
 
 # Cost by model
 for m in cost_by_model(days=7):
@@ -279,7 +289,7 @@ Yes. By default, all apps using TokenTracker write to the same database (`~/.tok
 - [ ] Cost alerts (desktop/email/Slack notifications)
 - [x] Embeddings API tracking
 - [ ] Image/audio API tracking
-- [ ] Smart routing suggestions (detect queries that could use a cheaper model)
+- [x] Smart routing suggestions (detect queries that could use a cheaper model)
 - [ ] Web dashboard (lightweight HTML viewer)
 - [ ] OpenTelemetry export
 
