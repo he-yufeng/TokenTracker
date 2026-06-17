@@ -179,6 +179,40 @@ def endpoints(days: int):
 
 
 @main.command()
+@click.option("--days", "-d", default=30, help="Number of days to look back")
+def tags(days: int):
+    """Show usage and cost grouped by tag (feature/flow attribution)."""
+    from tokentracker.query import cost_by_tag
+
+    rows = cost_by_tag(days=days)
+    if not rows:
+        console.print("[dim]No API calls tracked yet.[/dim]")
+        return
+
+    t = Table(title=f"Spend by Tag — Last {days} days", show_lines=False)
+    t.add_column("Tag", style="bold")
+    t.add_column("Calls", justify="right")
+    t.add_column("Input", justify="right")
+    t.add_column("Output", justify="right")
+    t.add_column("Cost", justify="right", style="green")
+    t.add_column("Avg Latency", justify="right", style="dim")
+
+    for row in rows:
+        cost_str = f"${row['total_cost']:.4f}" if row["total_cost"] else "—"
+        latency = f"{row['avg_latency']:.0f}ms" if row["avg_latency"] is not None else "—"
+        t.add_row(
+            row["tag"],
+            str(row["calls"]),
+            f"{row['input_tokens'] or 0:,}",
+            f"{row['output_tokens'] or 0:,}",
+            cost_str,
+            latency,
+        )
+
+    console.print(t)
+
+
+@main.command()
 @click.option("--limit", "limit_usd", type=float, required=True, help="Budget limit in USD")
 @click.option("--days", "-d", default=30, help="Number of days to look back")
 @click.option(

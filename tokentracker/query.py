@@ -256,6 +256,34 @@ def cost_by_endpoint(days: int = 30, db_path: str | None = None) -> list[dict]:
     return rows
 
 
+def cost_by_tag(days: int = 30, db_path: str | None = None) -> list[dict]:
+    """Get cost breakdown by tag, attributing spend to features/flows.
+
+    Calls logged outside any :func:`tokentracker.tag` block roll up under
+    ``"(untagged)"`` so the breakdown always accounts for the full spend.
+    """
+    conn = get_db(db_path)
+    conn.row_factory = _dict_factory
+    cur = conn.execute(
+        """SELECT
+            COALESCE(tag, '(untagged)') as tag,
+            COUNT(*) as calls,
+            SUM(input_tokens) as input_tokens,
+            SUM(output_tokens) as output_tokens,
+            SUM(cost_usd) as total_cost,
+            AVG(latency_ms) as avg_latency
+        FROM calls
+        WHERE timestamp > unixepoch('now', ?)
+          AND status = 'ok'
+        GROUP BY COALESCE(tag, '(untagged)')
+        ORDER BY total_cost DESC, calls DESC""",
+        (f"-{days} days",),
+    )
+    rows = cur.fetchall()
+    conn.row_factory = None
+    return rows
+
+
 def _dict_factory(cursor, row):
     return {col[0]: row[i] for i, col in enumerate(cursor.description)}
 

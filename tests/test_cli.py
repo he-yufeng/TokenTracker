@@ -88,6 +88,21 @@ def test_endpoints_groups_cost_by_endpoint(tmp_path, monkeypatch):
     assert "embeddings" in result.output
 
 
+def test_tags_groups_cost_by_tag(tmp_path, monkeypatch):
+    db_path = str(tmp_path / "usage.db")
+    monkeypatch.setattr(db, "DEFAULT_DB_PATH", db_path)
+    log_call("gpt-4o", 100, 50, 150, 0.25, 500.0, tag="checkout-flow", db_path=db_path)
+    log_call("gpt-4o", 80, 20, 100, 0.10, 400.0, tag="search", db_path=db_path)
+    log_call("gpt-4o", 10, 5, 15, 0.01, 100.0, db_path=db_path)  # untagged
+
+    result = CliRunner().invoke(main, ["tags", "--days", "1"])
+
+    assert result.exit_code == 0, result.output
+    assert "checkout-flow" in result.output
+    assert "search" in result.output
+    assert "(untagged)" in result.output
+
+
 def test_budget_can_target_model_and_endpoint(tmp_path, monkeypatch):
     db_path = str(tmp_path / "usage.db")
     monkeypatch.setattr(db, "DEFAULT_DB_PATH", db_path)
@@ -197,8 +212,16 @@ def _insert(conn, *, model, input_tokens, output_tokens, cost_usd, ts, endpoint=
            (timestamp, model, input_tokens, output_tokens, total_tokens,
             cost_usd, latency_ms, endpoint, status)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ok')""",
-        (ts, model, input_tokens, output_tokens, input_tokens + output_tokens,
-         cost_usd, 100.0, endpoint),
+        (
+            ts,
+            model,
+            input_tokens,
+            output_tokens,
+            input_tokens + output_tokens,
+            cost_usd,
+            100.0,
+            endpoint,
+        ),
     )
     conn.commit()
 
@@ -211,10 +234,15 @@ def test_insights_flags_a_spend_spike(tmp_path):
     now = time.time()
     baseline = {1: 0.50, 2: 0.55, 3: 0.50, 4: 0.60, 5: 0.52}
     for day, cost in baseline.items():
-        _insert(conn, model="gpt-4o", input_tokens=100, output_tokens=50,
-                cost_usd=cost, ts=now - day * 86400)
-    _insert(conn, model="gpt-4o", input_tokens=100, output_tokens=50,
-            cost_usd=5.0, ts=now)
+        _insert(
+            conn,
+            model="gpt-4o",
+            input_tokens=100,
+            output_tokens=50,
+            cost_usd=cost,
+            ts=now - day * 86400,
+        )
+    _insert(conn, model="gpt-4o", input_tokens=100, output_tokens=50, cost_usd=5.0, ts=now)
 
     data = insights(days=30, db_path=db_path)
     anomalies = data["anomalies"]
@@ -231,8 +259,14 @@ def test_insights_no_anomaly_on_flat_spend(tmp_path):
     conn = get_db(db_path)
     now = time.time()
     for day in range(1, 6):
-        _insert(conn, model="gpt-4o", input_tokens=100, output_tokens=50,
-                cost_usd=0.50, ts=now - day * 86400)
+        _insert(
+            conn,
+            model="gpt-4o",
+            input_tokens=100,
+            output_tokens=50,
+            cost_usd=0.50,
+            ts=now - day * 86400,
+        )
 
     assert insights(days=30, db_path=db_path)["anomalies"] == []
 
@@ -243,10 +277,8 @@ def test_insights_reports_cost_concentration(tmp_path):
     db_path = str(tmp_path / "usage.db")
     conn = get_db(db_path)
     now = time.time()
-    _insert(conn, model="gpt-4o", input_tokens=1000, output_tokens=1000,
-            cost_usd=0.90, ts=now)
-    _insert(conn, model="gpt-4o-mini", input_tokens=1000, output_tokens=1000,
-            cost_usd=0.10, ts=now)
+    _insert(conn, model="gpt-4o", input_tokens=1000, output_tokens=1000, cost_usd=0.90, ts=now)
+    _insert(conn, model="gpt-4o-mini", input_tokens=1000, output_tokens=1000, cost_usd=0.10, ts=now)
 
     conc = insights(days=30, db_path=db_path)["concentration"]
 
@@ -264,14 +296,32 @@ def test_insights_suggests_cheaper_model(tmp_path):
     now = time.time()
     # gpt-4o doing eight small calls plus three genuinely large ones.
     for _ in range(8):
-        _insert(conn, model="gpt-4o", input_tokens=500, output_tokens=500,
-                cost_usd=estimate_cost("gpt-4o", 500, 500), ts=now)
+        _insert(
+            conn,
+            model="gpt-4o",
+            input_tokens=500,
+            output_tokens=500,
+            cost_usd=estimate_cost("gpt-4o", 500, 500),
+            ts=now,
+        )
     for _ in range(3):
-        _insert(conn, model="gpt-4o", input_tokens=10000, output_tokens=10000,
-                cost_usd=estimate_cost("gpt-4o", 10000, 10000), ts=now)
+        _insert(
+            conn,
+            model="gpt-4o",
+            input_tokens=10000,
+            output_tokens=10000,
+            cost_usd=estimate_cost("gpt-4o", 10000, 10000),
+            ts=now,
+        )
     for _ in range(5):
-        _insert(conn, model="gpt-4o-mini", input_tokens=250, output_tokens=250,
-                cost_usd=estimate_cost("gpt-4o-mini", 250, 250), ts=now)
+        _insert(
+            conn,
+            model="gpt-4o-mini",
+            input_tokens=250,
+            output_tokens=250,
+            cost_usd=estimate_cost("gpt-4o-mini", 250, 250),
+            ts=now,
+        )
 
     suggestions = insights(days=30, db_path=db_path)["suggestions"]
     routing = next(s for s in suggestions if s["kind"] == "cheaper_model")
@@ -288,11 +338,11 @@ def test_insights_flags_untracked_pricing(tmp_path):
     db_path = str(tmp_path / "usage.db")
     conn = get_db(db_path)
     now = time.time()
-    _insert(conn, model="gpt-4o", input_tokens=100, output_tokens=50,
-            cost_usd=0.25, ts=now)
+    _insert(conn, model="gpt-4o", input_tokens=100, output_tokens=50, cost_usd=0.25, ts=now)
     for _ in range(3):
-        _insert(conn, model="mystery-model", input_tokens=100, output_tokens=50,
-                cost_usd=None, ts=now)
+        _insert(
+            conn, model="mystery-model", input_tokens=100, output_tokens=50, cost_usd=None, ts=now
+        )
 
     suggestions = insights(days=30, db_path=db_path)["suggestions"]
     missing = next(s for s in suggestions if s["kind"] == "missing_pricing")
@@ -331,8 +381,14 @@ def test_compare_reprices_workload_and_ranks_cheapest(tmp_path):
     db_path = str(tmp_path / "usage.db")
     conn = get_db(db_path)
     now = time.time()
-    _insert(conn, model="gpt-4o", input_tokens=1000, output_tokens=500,
-            cost_usd=estimate_cost("gpt-4o", 1000, 500), ts=now)
+    _insert(
+        conn,
+        model="gpt-4o",
+        input_tokens=1000,
+        output_tokens=500,
+        cost_usd=estimate_cost("gpt-4o", 1000, 500),
+        ts=now,
+    )
 
     data = model_comparison(days=30, db_path=db_path)
 
@@ -358,8 +414,7 @@ def test_compare_restricts_to_named_candidates(tmp_path):
     db_path = str(tmp_path / "usage.db")
     conn = get_db(db_path)
     now = time.time()
-    _insert(conn, model="gpt-4o", input_tokens=1000, output_tokens=500,
-            cost_usd=0.0075, ts=now)
+    _insert(conn, model="gpt-4o", input_tokens=1000, output_tokens=500, cost_usd=0.0075, ts=now)
 
     data = model_comparison(
         days=30,
