@@ -103,6 +103,24 @@ def test_tags_groups_cost_by_tag(tmp_path, monkeypatch):
     assert "(untagged)" in result.output
 
 
+def test_budget_can_target_a_tag(tmp_path, monkeypatch):
+    db_path = str(tmp_path / "usage.db")
+    monkeypatch.setattr(db, "DEFAULT_DB_PATH", db_path)
+    log_call("gpt-4o", 100, 50, 150, 0.30, 500.0, tag="checkout-flow", db_path=db_path)
+    log_call("gpt-4o", 80, 20, 100, 0.90, 400.0, tag="search", db_path=db_path)
+
+    # Budget scoped to "search" sees only the 0.90 spend and so is exceeded,
+    # even though the $0.50 limit covers checkout-flow's spend on its own.
+    result = CliRunner().invoke(main, ["budget", "--limit", "0.5", "--tag", "search", "--json"])
+
+    assert result.exit_code == 2
+    payload = json.loads(result.output)
+    assert payload["status"] == "exceeded"
+    assert payload["spent_usd"] == 0.9
+    assert payload["total_calls"] == 1
+    assert payload["scope"]["tag"] == "search"
+
+
 def test_budget_can_target_model_and_endpoint(tmp_path, monkeypatch):
     db_path = str(tmp_path / "usage.db")
     monkeypatch.setattr(db, "DEFAULT_DB_PATH", db_path)
@@ -148,6 +166,7 @@ def test_budget_can_target_model_and_endpoint(tmp_path, monkeypatch):
     assert payload["scope"] == {
         "model": "text-embedding-3-small",
         "endpoint": "embeddings",
+        "tag": None,
     }
 
 

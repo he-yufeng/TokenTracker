@@ -11,6 +11,7 @@ def summary(
     db_path: str | None = None,
     model: str | None = None,
     endpoint: str | None = None,
+    tag: str | None = None,
 ) -> dict:
     """Get a summary of usage over the last N days."""
     conn = get_db(db_path)
@@ -22,6 +23,9 @@ def summary(
     if endpoint:
         filters.append("COALESCE(endpoint, 'unknown') = ?")
         params.append(endpoint)
+    if tag:
+        filters.append("COALESCE(tag, '(untagged)') = ?")
+        params.append(tag)
     cur = conn.execute(
         f"""SELECT
             COUNT(*) as total_calls,

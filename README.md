@@ -176,6 +176,9 @@ tokentracker budget --limit 100 --json
 tokentracker budget --days 7 --limit 10 --model gpt-4o
 tokentracker budget --days 7 --limit 2 --endpoint embeddings --json
 
+# Or budget a single feature/flow by its tag (see "tag" above)
+tokentracker budget --days 7 --limit 5 --tag checkout-flow --json
+
 # Project the current seven-day run rate over the next month
 tokentracker forecast --days 7 --forecast-days 30
 tokentracker forecast --model gpt-4o --endpoint chat.completions --json
@@ -189,7 +192,7 @@ tokentracker compare
 tokentracker compare --endpoint chat.completions -c gpt-4o-mini -c claude-sonnet-4-6 --json
 ```
 
-Scoped budgets and forecasts use exact model and endpoint names, so one noisy workload can be inspected without hiding inside the account-wide total. Forecasts are deliberately simple run-rate projections, not statistical predictions.
+Scoped budgets use exact model, endpoint, or tag names, so one noisy workload — or one feature, via its tag — can be inspected without hiding inside the account-wide total. Forecasts are deliberately simple run-rate projections, not statistical predictions.
 
 `insights` reads the same data and points at the things worth acting on: days whose cost jumps well above the recent baseline (flagged with a modified z-score, which is robust to the spike itself), whether one model or endpoint dominates the bill, and where an expensive model is doing work a cheaper one already in your logs could handle. The cheaper-model suggestion reprices the small calls against the cheapest model you actually use, so the estimated savings come from your own pricing, not a guess.
 

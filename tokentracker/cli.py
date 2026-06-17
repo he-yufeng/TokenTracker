@@ -224,6 +224,7 @@ def tags(days: int):
 @click.option("--json", "json_output", is_flag=True, help="Print machine-readable JSON")
 @click.option("--model", help="Only count calls using this exact model name")
 @click.option("--endpoint", help="Only count calls using this API endpoint")
+@click.option("--tag", help="Only count calls with this tag (feature/flow budget)")
 def budget(
     limit_usd: float,
     days: int,
@@ -231,6 +232,7 @@ def budget(
     json_output: bool,
     model: str | None,
     endpoint: str | None,
+    tag: str | None,
 ):
     """Check spending against a budget and exit non-zero when it is exceeded."""
     from tokentracker.query import summary
@@ -242,7 +244,7 @@ def budget(
     if warn_at <= 0:
         raise click.UsageError("--warn-at must be greater than zero")
 
-    s = summary(days=days, model=model, endpoint=endpoint)
+    s = summary(days=days, model=model, endpoint=endpoint, tag=tag)
     spent = float(s["total_cost_usd"])
     ratio = spent / limit_usd
     remaining = max(limit_usd - spent, 0.0)
@@ -256,14 +258,14 @@ def budget(
         "usage_pct": round(ratio * 100, 1),
         "total_calls": s["total_calls"],
         "total_tokens": s["total_tokens"],
-        "scope": {"model": model, "endpoint": endpoint},
+        "scope": {"model": model, "endpoint": endpoint, "tag": tag},
     }
 
     if json_output:
         click.echo(json.dumps(payload, indent=2))
     else:
         style = "red" if status == "exceeded" else "yellow" if status == "warn" else "green"
-        scope = " · ".join(part for part in [model, endpoint] if part) or "all calls"
+        scope = " · ".join(part for part in [model, endpoint, tag] if part) or "all calls"
         console.print(
             Panel(
                 f"[bold]Spent:[/bold] ${spent:.4f} / ${limit_usd:.4f}\n"
