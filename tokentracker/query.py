@@ -190,6 +190,30 @@ def recent(limit: int = 20, days: int | None = None, db_path: str | None = None)
     return rows
 
 
+def export_calls(days: int = 30, db_path: str | None = None) -> list[dict]:
+    """Get every tracked call in the window for data export (CSV / JSON).
+
+    Unlike ``recent`` (a compact terminal view), this returns the full set of
+    attribution columns — including ``endpoint`` and ``tag`` — so exported data
+    can be sliced by feature/flow or provider in a spreadsheet or BI tool.
+    Timestamps are rendered as ISO-8601 UTC. Oldest first, all statuses.
+    """
+    conn = get_db(db_path)
+    conn.row_factory = _dict_factory
+    cur = conn.execute(
+        """SELECT datetime(timestamp, 'unixepoch') as timestamp,
+                  model, endpoint, tag, input_tokens, output_tokens,
+                  total_tokens, cost_usd, latency_ms, status
+        FROM calls
+        WHERE timestamp > unixepoch('now', ?)
+        ORDER BY timestamp ASC""",
+        (f"-{days} days",),
+    )
+    rows = cur.fetchall()
+    conn.row_factory = None
+    return rows
+
+
 def cost_by_model(days: int = 30, db_path: str | None = None) -> list[dict]:
     """Get cost breakdown by model."""
     conn = get_db(db_path)

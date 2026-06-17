@@ -487,12 +487,17 @@ def compare(
 @click.option("--format", "-f", "fmt", type=click.Choice(["json", "csv"]), default="json")
 @click.option("--days", "-d", default=30)
 def export(fmt: str, days: int):
-    """Export usage data to JSON or CSV."""
+    """Export usage data to JSON or CSV.
+
+    Includes the endpoint and tag columns so exported data can be analyzed by
+    feature/flow or provider downstream, the same way ``tags`` and ``endpoints``
+    break it down interactively.
+    """
     import csv
 
-    from tokentracker.query import recent as get_recent
+    from tokentracker.query import export_calls
 
-    calls = get_recent(limit=10000, days=days)
+    calls = export_calls(days=days)
     if not calls:
         console.print("[dim]No data to export.[/dim]")
         return

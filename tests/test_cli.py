@@ -31,6 +31,39 @@ def test_export_respects_days_window(tmp_path, monkeypatch):
     assert [row["model"] for row in payload] == ["new-model"]
 
 
+def test_export_csv_includes_endpoint_and_tag(tmp_path, monkeypatch):
+    db_path = str(tmp_path / "usage.db")
+    monkeypatch.setattr(db, "DEFAULT_DB_PATH", db_path)
+    log_call(
+        "gpt-4o", 100, 50, 150, 0.25, 500.0,
+        endpoint="https://api.openai.com/v1", tag="checkout-flow", db_path=db_path,
+    )
+
+    result = CliRunner().invoke(main, ["export", "--format", "csv", "--days", "1"])
+
+    assert result.exit_code == 0, result.output
+    header = result.output.splitlines()[0]
+    assert "endpoint" in header and "tag" in header
+    assert "checkout-flow" in result.output
+    assert "https://api.openai.com/v1" in result.output
+
+
+def test_export_json_includes_endpoint_and_tag(tmp_path, monkeypatch):
+    db_path = str(tmp_path / "usage.db")
+    monkeypatch.setattr(db, "DEFAULT_DB_PATH", db_path)
+    log_call(
+        "gpt-4o", 100, 50, 150, 0.25, 500.0,
+        endpoint="https://api.openai.com/v1", tag="checkout-flow", db_path=db_path,
+    )
+
+    result = CliRunner().invoke(main, ["export", "--format", "json", "--days", "1"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload[0]["tag"] == "checkout-flow"
+    assert payload[0]["endpoint"] == "https://api.openai.com/v1"
+
+
 def test_budget_json_ok(tmp_path, monkeypatch):
     db_path = str(tmp_path / "usage.db")
     monkeypatch.setattr(db, "DEFAULT_DB_PATH", db_path)

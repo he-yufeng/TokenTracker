@@ -136,7 +136,7 @@ tokentracker dashboard --days 7
 tokentracker recent
 tokentracker recent -n 50
 
-# 导出数据
+# 导出数据（含 endpoint 和 tag 列，便于在表格/BI 里按维度切分）
 tokentracker export --format json > usage.json
 tokentracker export --format csv > usage.csv
 

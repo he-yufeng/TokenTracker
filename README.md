@@ -162,7 +162,7 @@ tokentracker dashboard --days 7
 tokentracker recent
 tokentracker recent -n 50
 
-# Export data
+# Export data (includes endpoint and tag columns for slicing in a spreadsheet/BI)
 tokentracker export --format json > usage.json
 tokentracker export --format csv > usage.csv
 
