@@ -280,7 +280,7 @@ sqlite3 ~/.tokentracker/usage.db "SELECT model, SUM(cost_usd) FROM calls GROUP B
 No. TokenTracker adds ~0.1ms of overhead per call (the time to write one row to SQLite). The actual API call takes 500-5000ms, so the tracking overhead is negligible.
 
 **Does this work with streaming responses?**
-Token counts are extracted from the final response object. For streaming, OpenAI includes usage data in the final chunk when `stream_options={"include_usage": True}` is set. Support for automatic streaming tracking is on the roadmap.
+Yes. Streamed calls (`stream=True`) are tracked too — chunks pass through untouched and the call is logged once the stream is consumed. Pass `stream_options={"include_usage": True}` so OpenAI puts token counts in the final chunk; TokenTracker reads them from there. Without it the call (model, latency) is still recorded, just with zero token counts.
 
 **Can I use this in production?**
 Yes. TokenTracker uses thread-safe SQLite writes and adds minimal overhead. For high-throughput production use, consider setting `TOKENTRACKER_DB` to a fast local path (SSD).
@@ -293,7 +293,7 @@ Yes. By default, all apps using TokenTracker write to the same database (`~/.tok
 
 ## Roadmap
 
-- [ ] Streaming response support (track tokens from stream chunks)
+- [x] Streaming response support (track tokens from stream chunks)
 - [x] CLI budget checks for daily/monthly spend limits
 - [ ] Cost alerts (desktop/email/Slack notifications)
 - [x] Embeddings API tracking
