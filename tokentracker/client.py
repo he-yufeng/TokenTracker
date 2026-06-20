@@ -48,13 +48,16 @@ class _StreamLogger:
         if model:
             self._model = model
 
-    def finish(self) -> None:
+    def finish(self, error: str | None = None) -> None:
         if self._logged:
             return
         self._logged = True
         elapsed = (time.perf_counter() - self._t0) * 1000
         inp, out, total = _counts_from_usage(self._usage)
-        cost = estimate_cost(self._model, inp, out)
+        # A stream that broke mid-flight is an error, not a successful call —
+        # otherwise it would be counted as spend like the non-streaming path
+        # already avoids. Don't price a failed call.
+        cost = None if error else estimate_cost(self._model, inp, out)
         extra = {"endpoint": self._endpoint} if self._endpoint else {}
         log_call(
             model=self._model,
@@ -63,28 +66,40 @@ class _StreamLogger:
             total_tokens=total,
             cost_usd=cost,
             latency_ms=elapsed,
+            status="error" if error else "ok",
+            error=error[:500] if error else None,
             **extra,
         )
 
 
 def _wrap_stream(stream: Any, logger: _StreamLogger) -> Any:
     """Yield a sync stream's chunks, logging usage when it's exhausted."""
+    error: str | None = None
     try:
         for chunk in stream:
             logger.observe(chunk)
             yield chunk
+    except Exception as e:
+        error = str(e)
+        raise
     finally:
-        logger.finish()
+        # A consumer's early break raises GeneratorExit (not Exception), so it
+        # still logs as a normal call; only a real stream failure marks an error.
+        logger.finish(error=error)
 
 
 async def _wrap_async_stream(stream: Any, logger: _StreamLogger) -> Any:
     """Yield an async stream's chunks, logging usage when it's exhausted."""
+    error: str | None = None
     try:
         async for chunk in stream:
             logger.observe(chunk)
             yield chunk
+    except Exception as e:
+        error = str(e)
+        raise
     finally:
-        logger.finish()
+        logger.finish(error=error)
 
 
 class _TrackedCompletions:

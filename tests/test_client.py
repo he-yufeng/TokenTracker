@@ -1,6 +1,8 @@
 import asyncio
 from types import SimpleNamespace
 
+import pytest
+
 from tokentracker.client import (
     _AsyncTrackedCompletions,
     _AsyncTrackedEmbeddings,
@@ -29,6 +31,17 @@ class _StreamCompletions:
 class _NoUsageStreamCompletions:
     def create(self, **kwargs):
         return iter([_chunk("a"), _chunk("b")])
+
+
+class _RaisingStreamCompletions:
+    """A stream that fails partway through, like a dropped connection."""
+
+    def create(self, **kwargs):
+        def gen():
+            yield _chunk("partial")
+            raise RuntimeError("stream broke")
+
+        return gen()
 
 
 class _AsyncStreamCompletions:
@@ -128,6 +141,21 @@ def test_streaming_logs_once_on_early_break(monkeypatch):
     stream.close()  # closing the generator triggers the finally -> log once
 
     assert len(calls) == 1
+    assert calls[0]["status"] == "ok"  # an early break is not a failure
+
+
+def test_streaming_mid_stream_error_is_logged_as_error(monkeypatch):
+    calls = []
+    monkeypatch.setattr("tokentracker.client.log_call", lambda **kw: calls.append(kw))
+
+    stream = _TrackedCompletions(_RaisingStreamCompletions()).create(model="gpt-4o", stream=True)
+    with pytest.raises(RuntimeError, match="stream broke"):
+        list(stream)
+
+    assert len(calls) == 1  # the failed stream is still logged, once
+    assert calls[0]["status"] == "error"  # ...as an error, not silent spend
+    assert "stream broke" in (calls[0]["error"] or "")
+    assert calls[0]["cost_usd"] is None
 
 
 def test_async_streaming_logs_usage(monkeypatch):
