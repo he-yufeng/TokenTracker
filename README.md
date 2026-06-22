@@ -190,6 +190,10 @@ tokentracker insights --days 14 --json
 # Reprice your actual token volume on other models and providers
 tokentracker compare
 tokentracker compare --endpoint chat.completions -c gpt-4o-mini -c claude-sonnet-4-6 --json
+
+# Write a standalone HTML report (open in a browser, email it, attach to CI)
+tokentracker report
+tokentracker report --days 7 --output usage.html
 ```
 
 Scoped budgets use exact model, endpoint, or tag names, so one noisy workload — or one feature, via its tag — can be inspected without hiding inside the account-wide total. Forecasts are deliberately simple run-rate projections, not statistical predictions.
@@ -197,6 +201,8 @@ Scoped budgets use exact model, endpoint, or tag names, so one noisy workload �
 `insights` reads the same data and points at the things worth acting on: days whose cost jumps well above the recent baseline (flagged with a modified z-score, which is robust to the spike itself), whether one model or endpoint dominates the bill, and where an expensive model is doing work a cheaper one already in your logs could handle. The cheaper-model suggestion reprices the small calls against the cheapest model you actually use, so the estimated savings come from your own pricing, not a guess.
 
 `compare` takes the whole picture: it sums the input/output tokens of the scoped calls and reprices that exact workload on every model in the pricing table, cheapest first, with the delta against what you actually spent. Where `insights` only reroutes the small calls within models you already run, `compare` answers the broader "what if I moved this traffic to another provider entirely?" question. Chat and embedding tokens are summed together, so pass `--endpoint` when those should not be mixed, and `-c/--candidate` to limit the comparison to a short list.
+
+`report` writes the same breakdown the `dashboard` prints — summary, cost by model, daily spend, cost by endpoint — to a single self-contained HTML file. It embeds its own CSS, draws the charts with plain `<div>` bars, and pulls in no scripts, fonts, or images, so the file opens fully offline and is safe to email or save as a CI artifact. The numbers come from your own pricing table, computed locally.
 
 ### Query from Python
 
@@ -299,7 +305,7 @@ Yes. By default, all apps using TokenTracker write to the same database (`~/.tok
 - [x] Embeddings API tracking
 - [ ] Image/audio API tracking
 - [x] Smart routing suggestions (detect queries that could use a cheaper model)
-- [ ] Web dashboard (lightweight HTML viewer)
+- [x] Standalone HTML report (`tokentracker report`)
 - [ ] OpenTelemetry export
 
 ## Contributing

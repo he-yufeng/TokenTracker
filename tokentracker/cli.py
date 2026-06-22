@@ -508,3 +508,38 @@ def export(fmt: str, days: int):
         writer = csv.DictWriter(sys.stdout, fieldnames=calls[0].keys())
         writer.writeheader()
         writer.writerows(calls)
+
+
+@main.command()
+@click.option("--days", "-d", default=30, help="Number of days to look back")
+@click.option(
+    "--output",
+    "-o",
+    default="tokentracker-report.html",
+    type=click.Path(dir_okay=False, writable=True),
+    help="Where to write the HTML file",
+)
+def report(days: int, output: str):
+    """Write a standalone HTML report you can open in a browser or attach to CI."""
+    from pathlib import Path
+
+    from tokentracker.query import cost_by_day, cost_by_endpoint, cost_by_model, summary
+    from tokentracker.report import render_report_html
+
+    s = summary(days=days)
+    page = render_report_html(
+        days=days,
+        summary=s,
+        by_model=cost_by_model(days=days),
+        by_day=cost_by_day(days=days),
+        by_endpoint=cost_by_endpoint(days=days),
+        generated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
+    )
+    Path(output).write_text(page, encoding="utf-8")
+    if s["total_calls"] == 0:
+        console.print(f"[dim]No API calls tracked yet — wrote an empty report to {output}.[/dim]")
+    else:
+        console.print(
+            f"[green]Wrote HTML report to {output}[/green] "
+            f"({s['total_calls']:,} calls, ${s['total_cost_usd']:.4f})."
+        )
