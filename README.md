@@ -315,6 +315,11 @@ Contributions welcome — especially:
 - Supporting more API endpoints (embeddings, images, audio)
 - Improving the CLI dashboard
 
+## Related projects
+
+- [PromptDiff](https://github.com/he-yufeng/PromptDiff) — semantic diff for LLM prompts
+- [BatchLLM](https://github.com/he-yufeng/BatchLLM) — batch processing for LLM APIs
+
 ## License
 
 [MIT](LICENSE)
