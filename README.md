@@ -299,14 +299,13 @@ Yes. By default, all apps using TokenTracker write to the same database (`~/.tok
 
 ## Roadmap
 
-- [x] Streaming response support (track tokens from stream chunks)
-- [x] CLI budget checks for daily/monthly spend limits
-- [ ] Cost alerts (desktop/email/Slack notifications)
-- [x] Embeddings API tracking
-- [ ] Image/audio API tracking
-- [x] Smart routing suggestions (detect queries that could use a cheaper model)
-- [x] Standalone HTML report (`tokentracker report`)
-- [ ] OpenTelemetry export
+**Shipped:** streaming token tracking (counted from stream chunks), CLI budget checks for daily/monthly limits, embeddings API tracking, smart routing suggestions (flag a query a cheaper model could handle), and a standalone HTML report (`tokentracker report`).
+
+**Planned:**
+
+- **Cost alerts** — desktop / email / Slack notifications when spend crosses a budget threshold, so an overrun pages you instead of waiting to be noticed in next month's report.
+- **Image and audio API tracking** — extend the same per-call accounting to image and audio endpoints, which the pricing table doesn't cover yet.
+- **OpenTelemetry export** — emit usage as OTel spans, so token cost lands in the same dashboards as the rest of your traces.
 
 ## Contributing
 
