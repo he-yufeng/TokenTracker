@@ -1,8 +1,6 @@
 <div align="center">
 
-# TokenTracker
-
-**改一行 import，看清你的 LLM 账单花在了哪里。**
+<img src="docs/banner.png" alt="TokenTracker — 看清你的 LLM 账单" width="100%">
 
 每次 API 调用自动记录。每分钱清晰可查。零配置。
 
@@ -10,9 +8,11 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![CI](https://github.com/he-yufeng/TokenTracker/actions/workflows/ci.yml/badge.svg)](https://github.com/he-yufeng/TokenTracker/actions)
 
-**[English](README.md) | [中文](README_CN.md)**
+**[English](README.md) · [中文](README_CN.md)** &nbsp;·&nbsp; [快速上手](#快速上手) · [用法](#用法)
 
 </div>
+
+<p align="center"><img src="docs/demo.png" alt="tokentracker dashboard" width="620"></p>
 
 ---
 
