@@ -1,8 +1,6 @@
 <div align="center">
 
-# TokenTracker
-
-**Drop-in LLM cost tracker — change one import line, see where your money goes.**
+<img src="docs/banner.png" alt="TokenTracker — see where your LLM money goes" width="100%">
 
 Every API call logged. Every dollar tracked. Zero configuration.
 
@@ -10,9 +8,11 @@ Every API call logged. Every dollar tracked. Zero configuration.
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![CI](https://github.com/he-yufeng/TokenTracker/actions/workflows/ci.yml/badge.svg)](https://github.com/he-yufeng/TokenTracker/actions)
 
-**[English](README.md) | [中文](README_CN.md)**
+**[English](README.md) · [中文](README_CN.md)** &nbsp;·&nbsp; [Quick Start](#quick-start) · [Why?](#why-tokentracker) · [Usage](#usage)
 
 </div>
+
+<p align="center"><img src="docs/demo.png" alt="tokentracker dashboard" width="620"></p>
 
 ---
 
