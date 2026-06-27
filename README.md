@@ -314,10 +314,14 @@ Contributions welcome — especially:
 - Supporting more API endpoints (embeddings, images, audio)
 - Improving the CLI dashboard
 
-## Related projects
+## Related Projects
 
-- [PromptDiff](https://github.com/he-yufeng/PromptDiff) — semantic diff for LLM prompts
-- [BatchLLM](https://github.com/he-yufeng/BatchLLM) — batch processing for LLM APIs
+TokenTracker is one of my LLM-ops tools. A few others that pair well with it:
+
+- **[CoreCoder](https://github.com/he-yufeng/CoreCoder)** — want to understand how a coding agent really works? Read the whole ~1k-line engine end to end, not a black box.
+- **[RepoWiki](https://github.com/he-yufeng/RepoWiki)** — dropped into an unfamiliar codebase? It gives you a guided wiki and a where-to-start reading path, a self-hostable DeepWiki alternative.
+- **[BatchLLM](https://github.com/he-yufeng/BatchLLM)** — run an LLM over thousands of rows without losing work: async and resumable.
+- **[FlightBox](https://github.com/he-yufeng/FlightBox)** — make non-deterministic LLM calls reproducible: record once, then replay and diff in tests.
 
 ## License
 
