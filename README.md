@@ -29,7 +29,7 @@ Existing solutions are either heavyweight platforms that require you to rewrite 
 ### 1. Install
 
 ```bash
-pip install tokentracker
+pip install toktally
 ```
 
 ### 2. Change one import
