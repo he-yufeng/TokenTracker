@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 # Prices in USD per 1M tokens: (input_cost, output_cost)
-# Updated March 2026. Add new models as needed.
+# Updated July 2026. Add new models as needed.
 MODEL_PRICES: dict[str, tuple[float, float]] = {
     # OpenAI
+    "gpt-5.5": (5.00, 30.00),
+    "gpt-5.4": (2.50, 15.00),
+    "gpt-5": (1.25, 10.00),
+    "gpt-5-mini": (0.25, 2.00),
     "gpt-4o": (2.50, 10.00),
     "gpt-4o-mini": (0.15, 0.60),
     "gpt-4-turbo": (10.00, 30.00),
@@ -15,16 +19,22 @@ MODEL_PRICES: dict[str, tuple[float, float]] = {
     "o1-mini": (1.10, 4.40),
     "o3-mini": (1.10, 4.40),
     # Anthropic
+    "claude-opus-4-8": (5.00, 25.00),
+    "claude-sonnet-5": (3.00, 15.00),
     "claude-opus-4-6": (15.00, 75.00),
     "claude-sonnet-4-6": (3.00, 15.00),
     "claude-haiku-4-5": (0.80, 4.00),
     "claude-3-5-sonnet-20241022": (3.00, 15.00),
     "claude-3-haiku-20240307": (0.25, 1.25),
     # Anthropic via OpenRouter
+    "anthropic/claude-opus-4-8": (5.00, 25.00),
+    "anthropic/claude-sonnet-5": (3.00, 15.00),
     "anthropic/claude-sonnet-4": (3.00, 15.00),
     "anthropic/claude-opus-4-6": (15.00, 75.00),
     "anthropic/claude-haiku-4-5": (0.80, 4.00),
     # OpenAI via OpenRouter
+    "openai/gpt-5.5": (5.00, 30.00),
+    "openai/gpt-5.4": (2.50, 15.00),
     "openai/gpt-4o": (2.50, 10.00),
     "openai/gpt-4o-mini": (0.15, 0.60),
     # Google
@@ -64,8 +74,11 @@ def _normalize_model_name(model: str) -> str | None:
             if candidate.startswith(prefix):
                 candidates.append(candidate[len(prefix):])
 
+    # OpenAI uses a dashed date suffix (gpt-4o-2024-08-06); Anthropic uses a
+    # compact one (claude-haiku-4-5-20251001). Strip both to the base model id.
     for candidate in list(candidates):
         candidates.append(re.sub(r"-\d{4}-\d{2}-\d{2}$", "", candidate))
+        candidates.append(re.sub(r"-\d{8}$", "", candidate))
 
     seen: set[str] = set()
     for candidate in candidates:
