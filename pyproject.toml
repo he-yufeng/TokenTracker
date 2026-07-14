@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "toktally"
-version = "0.1.0"
+version = "0.2.0"
 description = "Drop-in LLM cost tracker — change one import line, see where your money goes"
 readme = "README.md"
 license = "MIT"

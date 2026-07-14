@@ -543,3 +543,119 @@ def report(days: int, output: str):
             f"[green]Wrote HTML report to {output}[/green] "
             f"({s['total_calls']:,} calls, ${s['total_cost_usd']:.4f})."
         )
+
+
+@main.group()
+def budgets() -> None:
+    """Define and check persistent named spending budgets."""
+
+
+@budgets.command("set")
+@click.argument("name")
+@click.option("--limit", "limit_usd", type=float, required=True, help="Budget limit in USD")
+@click.option(
+    "--days", "-d", default=30, show_default=True, help="Rolling window to measure spend over"
+)
+@click.option(
+    "--warn-at",
+    default=0.8,
+    show_default=True,
+    help="Warn when usage reaches this fraction of the limit",
+)
+@click.option("--model", help="Only count calls using this exact model name")
+@click.option("--endpoint", help="Only count calls using this API endpoint")
+@click.option("--tag", help="Only count calls with this tag")
+def budgets_set(name, limit_usd, days, warn_at, model, endpoint, tag) -> None:
+    """Create or replace a named budget (reusing NAME overwrites it)."""
+    from tokentracker import budgets as budgets_mod
+
+    try:
+        b = budgets_mod.set_budget(
+            name, limit_usd, days=days, warn_at=warn_at, model=model, endpoint=endpoint, tag=tag
+        )
+    except ValueError as exc:
+        raise click.UsageError(str(exc)) from exc
+    scope = " · ".join(part for part in [model, endpoint, tag] if part) or "all calls"
+    console.print(
+        f"[green]Saved budget[/green] [bold]{b.name}[/bold]: "
+        f"${b.limit_usd:.2f} over {b.days}d · {scope}"
+    )
+
+
+@budgets.command("list")
+@click.option("--json", "json_output", is_flag=True, help="Print machine-readable JSON")
+def budgets_list(json_output) -> None:
+    """List every saved budget."""
+    from dataclasses import asdict
+
+    from tokentracker import budgets as budgets_mod
+
+    rows = budgets_mod.list_budgets()
+    if json_output:
+        click.echo(json.dumps([asdict(b) for b in rows], indent=2))
+        return
+    if not rows:
+        console.print("[dim]No budgets defined. Add one with `tokentracker budgets set`.[/dim]")
+        return
+    table = Table(title="Budgets")
+    for col in ("Name", "Limit", "Window", "Warn at", "Scope"):
+        table.add_column(col)
+    for b in rows:
+        scope = " · ".join(part for part in [b.model, b.endpoint, b.tag] if part) or "all"
+        table.add_row(b.name, f"${b.limit_usd:.2f}", f"{b.days}d", f"{b.warn_at * 100:.0f}%", scope)
+    console.print(table)
+
+
+@budgets.command("rm")
+@click.argument("name")
+def budgets_rm(name) -> None:
+    """Delete a saved budget by NAME."""
+    from tokentracker import budgets as budgets_mod
+
+    if budgets_mod.remove_budget(name):
+        console.print(f"[green]Removed budget[/green] [bold]{name}[/bold].")
+    else:
+        raise click.UsageError(f"No budget named {name!r}.")
+
+
+@budgets.command("check")
+@click.argument("name", required=False)
+@click.option("--json", "json_output", is_flag=True, help="Print machine-readable JSON")
+def budgets_check(name, json_output) -> None:
+    """Check saved budgets against current spend (all of them, or a single NAME).
+
+    Exits non-zero when any checked budget is exceeded, so a CI step can gate on it.
+    """
+    from tokentracker import budgets as budgets_mod
+
+    if name:
+        matches = [b for b in budgets_mod.list_budgets() if b.name == name]
+        if not matches:
+            raise click.UsageError(f"No budget named {name!r}.")
+        results = [budgets_mod.check_budget(matches[0])]
+    else:
+        results = budgets_mod.check_all()
+
+    if json_output:
+        click.echo(json.dumps(results, indent=2))
+    elif not results:
+        console.print("[dim]No budgets defined. Add one with `tokentracker budgets set`.[/dim]")
+    else:
+        for r in results:
+            style = (
+                "red"
+                if r["status"] == "exceeded"
+                else "yellow"
+                if r["status"] == "warn"
+                else "green"
+            )
+            breach = r["breach_in_days"]
+            eta = (
+                "over budget" if breach == 0 else f"~{breach}d to breach" if breach else "on track"
+            )
+            console.print(
+                f"[{style}]{r['status'].upper():8}[/{style}] [bold]{r['name']}[/bold] "
+                f"${r['spent_usd']:.4f}/${r['limit_usd']:.2f} ({r['usage_pct']:.1f}%) · {eta}"
+            )
+    if any(r["status"] == "exceeded" for r in results):
+        sys.exit(1)

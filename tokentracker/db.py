@@ -63,6 +63,17 @@ CREATE TABLE IF NOT EXISTS calls (
 );
 CREATE INDEX IF NOT EXISTS idx_calls_timestamp ON calls(timestamp);
 CREATE INDEX IF NOT EXISTS idx_calls_model ON calls(model);
+
+CREATE TABLE IF NOT EXISTS budgets (
+    name TEXT PRIMARY KEY,
+    limit_usd REAL NOT NULL,
+    days INTEGER NOT NULL DEFAULT 30,
+    warn_at REAL NOT NULL DEFAULT 0.8,
+    model TEXT,
+    endpoint TEXT,
+    tag TEXT,
+    created_at REAL NOT NULL
+);
 """
 
 

@@ -83,6 +83,26 @@ Need to know whether chat, embeddings, or another API surface is burning the bud
 tokentracker endpoints
 ```
 
+### 4. Set budgets and fail CI when you blow them
+
+Define named spending limits once — a total cap, or one scoped to a model, endpoint, or tag — and check them all at a glance. `check` exits non-zero when any budget is exceeded, so you can gate a CI job or a nightly cron on it.
+
+```bash
+tokentracker budgets set monthly --limit 500          # total spend cap
+tokentracker budgets set gpt4-daily --limit 50 --days 1 --model gpt-4o
+tokentracker budgets check
+```
+
+```
+OK       monthly     $182.4030/$500.00 (36.5%) · ~24d to breach
+EXCEEDED gpt4-daily  $63.1200/$50.00 (126.2%) · over budget
+```
+
+```bash
+# In CI — nonzero exit fails the step when any budget is exceeded
+tokentracker budgets check --json
+```
+
 ## Why TokenTracker?
 
 | Feature | TokenTracker | AgentOps | LangSmith | Manual logging |
